@@ -131,22 +131,33 @@ export default function ThermalCard({ data, selectedHour }: Props) {
       {/* CAPE bar chart */}
       {flightHourly.length > 0 && (
         <div>
-          <div className="text-xs font-bold text-slate-400 mb-2">CAPE per ora (09–19h)</div>
-          <div className="flex items-end gap-1 h-14">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-bold text-slate-400">CAPE per ora (09–19h)</div>
+            <div className="flex items-center gap-3 text-[10px] text-slate-500">
+              <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ background: "#fbbf24" }} />stabile</span>
+              <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ background: "#fb923c" }} />&gt;500</span>
+              <span><span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ background: "#f87171" }} />&gt;1000</span>
+            </div>
+          </div>
+          <div className="relative h-24 flex items-end gap-1 overflow-hidden">
             {flightHourly.map((h) => {
               const pct = Math.min(100, (h.cape / Math.max(maxCape, 1)) * 100);
-              const col = h.cape > 1000 ? "#f87171" : h.cape > 500 ? "#fbbf24" : "#34d399";
+              const col = h.cape > 1000 ? "#f87171" : h.cape > 500 ? "#fb923c" : "#fbbf24";
+              const glow = h.cape > 1000 ? "rgba(248,113,113,0.4)" : h.cape > 500 ? "rgba(251,146,60,0.35)" : "rgba(251,191,36,0.3)";
               const isSelected = selectedHour?.hour === h.hour;
               return (
-                <div key={h.hour} className="flex-1 flex flex-col items-center gap-0.5">
-                  <div className="w-full rounded-t transition-all"
+                <div key={h.hour} className="flex-1 flex flex-col items-center justify-end gap-0.5" style={{ height: "100%" }}>
+                  <div
+                    className="w-full rounded-t-lg transition-all duration-300"
                     style={{
-                      height: `${Math.max(3, pct * 0.5)}rem`,
-                      background: col,
-                      opacity: isSelected ? 1 : 0.55,
-                      boxShadow: isSelected ? `0 0 8px ${col}` : "none",
-                    }} />
-                  <div className="text-[8px] text-slate-500">{h.hour}h</div>
+                      height: `${Math.max(4, pct)}%`,
+                      background: `linear-gradient(to top, ${col}, ${col}bb)`,
+                      opacity: isSelected ? 1 : 0.6,
+                      boxShadow: isSelected ? `0 0 10px ${glow}` : "none",
+                      border: isSelected ? `1px solid ${col}` : "1px solid transparent",
+                    }}
+                  />
+                  <div className="text-[8px] text-slate-500 shrink-0">{h.hour}h</div>
                 </div>
               );
             })}
