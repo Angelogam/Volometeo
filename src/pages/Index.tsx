@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { SITES } from "@/constants/sites";
 import { useWeather, useAllSiteRankings } from "@/hooks/useWeather";
-import { SiteRanking, LaunchSite } from "@/types/weather";
+import { SiteRanking, LaunchSite, HourlySlot } from "@/types/weather";
 import { cn } from "@/lib/utils";
 import Header from "@/components/layout/Header";
 import VolabilityHero from "@/components/features/VolabilityHero";
@@ -19,17 +19,26 @@ type Tab = "orario" | "windgram" | "termiche" | "settimanale" | "soaring";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "settimanale", label: "7 Giorni", icon: "📅" },
-  { id: "orario", label: "Orario 09-19h", icon: "⏱️" },
+  { id: "orario", label: "Orario 09–19h", icon: "⏱️" },
   { id: "soaring", label: "Grafici", icon: "📈" },
   { id: "termiche", label: "Termiche", icon: "🌀" },
   { id: "windgram", label: "Windgram", icon: "📊" },
 ];
 
-const vc = (v: number) => v >= 7 ? "#16a34a" : v >= 4 ? "#d97706" : "#dc2626";
-const volBg = (l: string) => l === "GO" ? "#f0fdf4" : l === "CAUTION" ? "#fffbeb" : "#fef2f2";
-const volBorder = (l: string) => l === "GO" ? "#bbf7d0" : l === "CAUTION" ? "#fde68a" : "#fecaca";
-const volText = (l: string) => l === "GO" ? "#16a34a" : l === "CAUTION" ? "#d97706" : "#dc2626";
-const volBadge = (l: string) => l === "GO" ? "bg-emerald-100 text-emerald-700" : l === "CAUTION" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700";
+function volColor(l: string) { return l === "GO" ? "#34d399" : l === "CAUTION" ? "#fbbf24" : "#f87171"; }
+function volBorder(l: string) {
+  return l === "GO" ? "rgba(52,211,153,0.3)" : l === "CAUTION" ? "rgba(251,191,36,0.3)" : "rgba(248,113,113,0.3)";
+}
+function volBg(l: string) {
+  return l === "GO" ? "rgba(52,211,153,0.06)" : l === "CAUTION" ? "rgba(251,191,36,0.06)" : "rgba(248,113,113,0.06)";
+}
+function volBadgeSx(l: string) {
+  return l === "GO"
+    ? { background: "rgba(52,211,153,0.15)", color: "#34d399" }
+    : l === "CAUTION"
+    ? { background: "rgba(251,191,36,0.15)", color: "#fbbf24" }
+    : { background: "rgba(248,113,113,0.15)", color: "#f87171" };
+}
 
 /* ── Mobile Site Picker ─────────────────────────────────────────── */
 function MobileSitePicker({ rankings, selectedId, onSelect }: {
@@ -48,73 +57,89 @@ function MobileSitePicker({ rankings, selectedId, onSelect }: {
     [rankings, search]
   );
 
+  const col = selected ? volColor(selected.label) : "#64748b";
+  const border = selected ? volBorder(selected.label) : "rgba(100,116,139,0.3)";
+  const bg = selected ? volBg(selected.label) : "rgba(15,20,30,0.85)";
+
   return (
     <div className="lg:hidden">
       <button
         onClick={() => setOpen(true)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 bg-white rounded-2xl border-2 card-shadow transition-all"
-        style={selected ? { borderColor: volBorder(selected.label), background: volBg(selected.label) } : { borderColor: "#e5e7eb" }}>
+        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl transition-all"
+        style={{ background: bg, border: `1px solid ${border}` }}
+      >
         <div className="flex items-center gap-3">
           <span className="text-2xl">{selected?.site.icon ?? "🏔️"}</span>
           <div className="text-left">
-            <div className="font-bold text-gray-900 text-sm">{selected?.site.name ?? "Seleziona decollo"}</div>
-            <div className="text-xs text-gray-500">⛰️ {selected?.site.altitude}m · {selected?.site.zone}</div>
+            <div className="font-bold text-white text-sm">{selected?.site.name ?? "Seleziona decollo"}</div>
+            <div className="text-xs text-slate-500">⛰️ {selected?.site.altitude}m · {selected?.site.zone}</div>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {selected && !selected.loading && (
             <div className="text-right">
-              <div className="text-xl font-black" style={{ color: volText(selected.label) }}>{selected.volability.toFixed(1)}</div>
-              <div className="text-[9px] text-gray-400">/10</div>
+              <div className="text-xl font-black" style={{ color: col }}>{selected.volability.toFixed(1)}</div>
+              <div className="text-[9px] text-slate-500">/10</div>
             </div>
           )}
-          <div className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 text-sm">▼</div>
+          <div className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 text-sm"
+            style={{ background: "rgba(255,255,255,0.06)" }}>▼</div>
         </div>
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
-            <h3 className="font-black text-gray-900">🪂 Scegli Decollo</h3>
-            <button onClick={() => setOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 text-lg">✕</button>
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "#0a0c10" }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b"
+            style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+            <h3 className="font-black text-white">🪂 Scegli Decollo</h3>
+            <button onClick={() => setOpen(false)}
+              className="w-10 h-10 flex items-center justify-center rounded-full text-slate-400 text-lg"
+              style={{ background: "rgba(255,255,255,0.06)" }}>✕</button>
           </div>
-          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+          <div className="px-4 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
             <input
               placeholder="🔍 Cerca sito..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-emerald-400"
+              className="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none"
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
             />
           </div>
           <div className="overflow-y-auto flex-1 px-3 py-3 flex flex-col gap-2">
             {filtered.map((r) => {
               const isSel = r.site.id === selectedId;
+              const rc = volColor(r.label);
               return (
                 <button key={r.site.id}
                   onClick={() => { onSelect(r.site); setOpen(false); setSearch(""); }}
-                  className="w-full text-left rounded-2xl border-2 px-4 py-3 transition-all min-h-[64px]"
-                  style={isSel ? { borderColor: volBorder(r.label), background: volBg(r.label) } : { borderColor: "#e5e7eb", background: "white" }}>
+                  className="w-full text-left rounded-2xl px-4 py-3 transition-all min-h-[64px]"
+                  style={{
+                    background: isSel ? volBg(r.label) : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${isSel ? volBorder(r.label) : "rgba(255,255,255,0.07)"}`,
+                  }}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-xl shrink-0">{r.site.icon}</span>
                       <div className="min-w-0">
-                        <div className="font-bold text-gray-900 text-sm truncate">{r.site.name}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{r.site.altitude}m · {r.site.zone}</div>
-                        <div className="text-[10px] text-gray-400">🧭 {r.site.orientation} · max {r.site.maxWindKmh} km/h</div>
+                        <div className="font-bold text-white text-sm truncate">{r.site.name}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">{r.site.altitude}m · {r.site.zone}</div>
+                        <div className="text-[10px] text-slate-600">🧭 {r.site.orientation} · max {r.site.maxWindKmh} km/h</div>
                       </div>
                     </div>
                     {r.loading ? (
-                      <div className="w-6 h-6 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin shrink-0" />
+                      <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin shrink-0"
+                        style={{ borderColor: "rgba(56,189,248,0.3)", borderTopColor: "#38bdf8" }} />
                     ) : (
                       <div className="text-right shrink-0">
-                        <div className="text-2xl font-black" style={{ color: volText(r.label) }}>{r.volability.toFixed(1)}</div>
-                        <div className="text-[10px] text-gray-400">💨 {r.wind} km/h</div>
+                        <div className="text-2xl font-black" style={{ color: rc }}>{r.volability.toFixed(1)}</div>
+                        <div className="text-[10px] text-slate-500">💨 {r.wind} km/h</div>
                       </div>
                     )}
                   </div>
                   {!r.loading && (
-                    <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${(r.volability / 10) * 100}%`, background: volText(r.label) }} />
+                    <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                      <div className="h-full rounded-full" style={{ width: `${(r.volability / 10) * 100}%`, background: rc }} />
                     </div>
                   )}
                 </button>
@@ -154,26 +179,26 @@ function SiteList({ rankings, selectedId, onSelect }: {
   return (
     <div className="flex flex-col gap-3 h-full">
       {/* Header */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 card-shadow">
+      <div className="rounded-2xl p-4 cockpit-card-glow">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <div className="font-black text-gray-900 text-base">🪂 Decolli Piemonte</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">{SITES.length} siti · Open-Meteo Live</div>
+            <div className="font-black text-white text-base">🪂 Decolli Piemonte</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">{SITES.length} siti · Open-Meteo Live</div>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot" />
-            <span className="text-[10px] font-bold text-emerald-600">LIVE</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" />
+            <span className="text-[10px] font-bold text-emerald-400">LIVE</span>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-1.5">
           {[
-            { l: "🪂 VOLA", n: goCount, bg: "#f0fdf4", border: "#bbf7d0", text: "#16a34a" },
-            { l: "⚠️ VALUTA", n: cautionCount, bg: "#fffbeb", border: "#fde68a", text: "#d97706" },
-            { l: "🚫 STOP", n: stopCount, bg: "#fef2f2", border: "#fecaca", text: "#dc2626" },
+            { l: "🪂 VOLA", n: goCount, color: "#34d399", bg: "rgba(52,211,153,0.1)", border: "rgba(52,211,153,0.25)" },
+            { l: "⚠️ VALUTA", n: cautionCount, color: "#fbbf24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.25)" },
+            { l: "🚫 STOP", n: stopCount, color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)" },
           ].map((s) => (
             <div key={s.l} className="text-center rounded-xl border py-2"
-              style={{ color: s.text, background: s.bg, borderColor: s.border }}>
+              style={{ color: s.color, background: s.bg, borderColor: s.border }}>
               <div className="text-2xl font-black leading-none">{s.n}</div>
               <div className="text-[9px] font-bold mt-0.5">{s.l}</div>
             </div>
@@ -182,19 +207,22 @@ function SiteList({ rankings, selectedId, onSelect }: {
       </div>
 
       {/* Search & filters */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-3 card-shadow flex flex-col gap-2">
+      <div className="rounded-2xl p-3 cockpit-card flex flex-col gap-2">
         <input
           placeholder="🔍 Cerca decollo..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-emerald-400 min-h-[36px]"
+          className="w-full rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none min-h-[36px]"
+          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
         />
         <div className="flex gap-1">
           {(["ALL", "CN", "TO"] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
-              className={cn("flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all border",
-                filter === f ? "bg-gray-900 text-white border-gray-900" : "text-gray-500 border-gray-200 hover:border-gray-300"
-              )}>
+              className={cn("flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all border")}
+              style={filter === f
+                ? { background: "#e2e8f0", color: "#0a0c10", borderColor: "#e2e8f0" }
+                : { color: "#64748b", borderColor: "rgba(255,255,255,0.08)", background: "transparent" }
+              }>
               {f === "ALL" ? "Tutti" : f === "CN" ? "Cuneo" : "Torino"}
             </button>
           ))}
@@ -202,9 +230,11 @@ function SiteList({ rankings, selectedId, onSelect }: {
         <div className="flex gap-1">
           {[{ k: "vol", l: "Volabilità" }, { k: "alt", l: "Quota" }, { k: "name", l: "Nome" }].map((s) => (
             <button key={s.k} onClick={() => setSortBy(s.k as typeof sortBy)}
-              className={cn("flex-1 py-1 rounded text-[10px] font-bold transition-all border",
-                sortBy === s.k ? "bg-gray-100 text-gray-900 border-gray-300" : "text-gray-400 border-gray-100 hover:text-gray-600"
-              )}>
+              className="flex-1 py-1 rounded text-[10px] font-bold transition-all border"
+              style={sortBy === s.k
+                ? { background: "rgba(255,255,255,0.08)", color: "#e2e8f0", borderColor: "rgba(255,255,255,0.15)" }
+                : { color: "#475569", borderColor: "rgba(255,255,255,0.05)", background: "transparent" }
+              }>
               {s.l}
             </button>
           ))}
@@ -217,15 +247,15 @@ function SiteList({ rankings, selectedId, onSelect }: {
         if (!best) return null;
         return (
           <button onClick={() => onSelect(best.site)}
-            className="w-full text-left rounded-2xl border-2 px-3 py-2.5 transition-all hover:shadow-md"
-            style={{ borderColor: volBorder(best.label), background: volBg(best.label) }}>
+            className="w-full text-left rounded-2xl px-3 py-2.5 transition-all hover:brightness-125"
+            style={{ background: volBg(best.label), border: `1px solid ${volBorder(best.label)}` }}>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs font-bold text-amber-600">🏆 Miglior decollo oggi</div>
-                <div className="font-black text-gray-900 text-sm mt-0.5">{best.site.name}</div>
-                <div className="text-[10px] text-gray-500">{best.site.altitude}m · {best.site.zone}</div>
+                <div className="text-xs font-bold text-amber-400">🏆 Miglior decollo oggi</div>
+                <div className="font-black text-white text-sm mt-0.5">{best.site.name}</div>
+                <div className="text-[10px] text-slate-500">{best.site.altitude}m · {best.site.zone}</div>
               </div>
-              <div className="text-2xl font-black" style={{ color: volText(best.label) }}>{best.volability.toFixed(1)}</div>
+              <div className="text-2xl font-black" style={{ color: volColor(best.label) }}>{best.volability.toFixed(1)}</div>
             </div>
           </button>
         );
@@ -235,37 +265,38 @@ function SiteList({ rankings, selectedId, onSelect }: {
       <div className="flex flex-col gap-1.5 overflow-y-auto flex-1 min-h-0">
         {sorted.map((r, idx) => {
           const isSelected = r.site.id === selectedId;
+          const rc = volColor(r.label);
           return (
             <button key={r.site.id} onClick={() => onSelect(r.site)}
-              className={cn("w-full text-left rounded-xl border px-3 py-2.5 transition-all cursor-pointer rank-in",
-                isSelected
-                  ? "border-2 shadow-sm"
-                  : "border bg-white hover:bg-gray-50 border-gray-100 hover:border-gray-200"
-              )}
-              style={isSelected ? { borderColor: volBorder(r.label), background: volBg(r.label) } : {}}>
+              className={cn("w-full text-left rounded-xl px-3 py-2.5 transition-all cursor-pointer rank-in")}
+              style={isSelected
+                ? { background: volBg(r.label), border: `2px solid ${volBorder(r.label)}` }
+                : { background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }
+              }>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-gray-400 w-4 shrink-0 font-mono">{idx + 1}</span>
+                <span className="text-[10px] text-slate-600 w-4 shrink-0 font-mono">{idx + 1}</span>
                 <span className="text-lg shrink-0">{r.site.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-gray-900 text-xs truncate">{r.site.name}</div>
-                  <div className="text-[10px] text-gray-400 mt-0.5">
+                  <div className="font-bold text-white text-xs truncate">{r.site.name}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
                     {r.site.region} · {r.site.altitude}m {!r.loading && `· 💨${r.wind}`}
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
                   {r.loading ? (
-                    <div className="w-5 h-5 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+                    <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
+                      style={{ borderColor: "rgba(56,189,248,0.3)", borderTopColor: "#38bdf8" }} />
                   ) : (
                     <>
-                      <div className="text-sm font-black" style={{ color: volText(r.label) }}>{r.volability.toFixed(1)}</div>
-                      <div className={cn("text-[9px] font-bold px-1 rounded-full", volBadge(r.label))}>{r.label}</div>
+                      <div className="text-sm font-black" style={{ color: rc }}>{r.volability.toFixed(1)}</div>
+                      <span className="text-[9px] font-bold px-1 rounded-full" style={volBadgeSx(r.label)}>{r.label}</span>
                     </>
                   )}
                 </div>
               </div>
               {!r.loading && (
-                <div className="mt-1.5 h-1 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${(r.volability / 10) * 100}%`, background: volText(r.label) }} />
+                <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${(r.volability / 10) * 100}%`, background: rc }} />
                 </div>
               )}
             </button>
@@ -279,15 +310,14 @@ function SiteList({ rankings, selectedId, onSelect }: {
 /* ── Tab Bar ─────────────────────────────────────────────────────── */
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-1.5 flex gap-1 overflow-x-auto card-shadow">
+    <div className="rounded-2xl p-1.5 flex gap-1 overflow-x-auto cockpit-card">
       {TABS.map((tab) => (
         <button key={tab.id} onClick={() => onChange(tab.id)}
-          className={cn(
-            "shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[40px]",
-            active === tab.id
-              ? "bg-gray-900 text-white"
-              : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
-          )}>
+          className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[40px]"
+          style={active === tab.id
+            ? { background: "#e2e8f0", color: "#0a0c10" }
+            : { color: "#64748b" }
+          }>
           <span className="text-sm">{tab.icon}</span>
           <span>{tab.label}</span>
         </button>
@@ -301,15 +331,21 @@ export default function Index() {
   const rankings = useAllSiteRankings();
   const [selectedSite, setSelectedSite] = useState<LaunchSite>(SITES[0]);
   const [activeTab, setActiveTab] = useState<Tab>("settimanale");
+  const [selectedHour, setSelectedHour] = useState<HourlySlot | null>(null);
 
   const { data, isLoading, isError } = useWeather(selectedSite);
 
   function handleSiteSelect(site: LaunchSite) {
     setSelectedSite(site);
+    setSelectedHour(null); // reset selected hour on site change
+  }
+
+  function handleHourSelect(h: HourlySlot) {
+    setSelectedHour(prev => prev?.hour === h.hour ? null : h);
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f7fa]">
+    <div className="min-h-screen" style={{ background: "#0a0c10" }}>
       <Header />
 
       <div className="max-w-[1680px] mx-auto px-3 sm:px-4 lg:px-5 py-4 flex flex-col lg:flex-row gap-4">
@@ -328,10 +364,11 @@ export default function Index() {
           {isLoading && <LoadingOverlay />}
 
           {isError && (
-            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-8 text-center">
+            <div className="rounded-2xl p-8 text-center"
+              style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)" }}>
               <div className="text-4xl mb-3">⚠️</div>
-              <div className="font-bold text-red-700 text-lg">Errore caricamento dati</div>
-              <div className="text-sm text-red-500 mt-2">Impossibile raggiungere Open-Meteo API. Verifica la connessione.</div>
+              <div className="font-bold text-red-400 text-lg">Errore caricamento dati</div>
+              <div className="text-sm text-red-500/70 mt-2">Impossibile raggiungere Open-Meteo API. Verifica la connessione.</div>
               <button onClick={() => window.location.reload()}
                 className="mt-4 px-5 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors">
                 Riprova
@@ -341,39 +378,58 @@ export default function Index() {
 
           {data && (
             <>
-              <VolabilityHero data={data} />
+              {/* Hero — reacts to selectedHour */}
+              <VolabilityHero data={data} selectedHour={selectedHour} />
+
+              {/* Sun */}
               <SunBar sun={data.sun} siteName={data.site.name} />
+
+              {/* Alerts */}
               <AlertsPanel alerts={data.alerts} />
+
+              {/* Tabs */}
               <TabBar active={activeTab} onChange={setActiveTab} />
 
+              {/* Tab content */}
               <div className="fade-up">
                 {activeTab === "settimanale" && (
                   <DailyForecast daily={data.daily} hourly={data.hourly} />
                 )}
                 {activeTab === "orario" && (
-                  <InteractiveHourlyTable hourly={data.hourly} siteAlt={data.site.altitude} />
+                  <InteractiveHourlyTable
+                    hourly={data.hourly}
+                    siteAlt={data.site.altitude}
+                    selectedHour={selectedHour}
+                    onSelectHour={handleHourSelect}
+                  />
                 )}
                 {activeTab === "soaring" && (
-                  <SoaringChart data={data} />
+                  <SoaringChart data={data} selectedHour={selectedHour} />
                 )}
                 {activeTab === "termiche" && (
                   <div className="flex flex-col gap-4">
-                    <BriefingCard data={data} />
-                    <ThermalCard data={data} />
+                    <BriefingCard data={data} selectedHour={selectedHour} />
+                    <ThermalCard data={data} selectedHour={selectedHour} />
                   </div>
                 )}
                 {activeTab === "windgram" && (
-                  <WindgramChart windgram={data.windgram} siteAlt={data.site.altitude} />
+                  <WindgramChart
+                    windgram={data.windgram}
+                    siteAlt={data.site.altitude}
+                    hourly={data.hourly}
+                  />
                 )}
               </div>
             </>
           )}
 
-          <div className="mt-4 py-4 border-t border-gray-200 text-center text-xs text-gray-400">
-            <div className="font-bold text-gray-600 mb-1">MeteoVolo Piemonte — Dati reali Open-Meteo API</div>
-            <div>Fonte: <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">open-meteo.com</a> · Aggiornamento ogni 30 minuti</div>
-            <div className="mt-1 text-gray-300">
-              Tutti i dati meteo provengono da Open-Meteo (ECMWF, ICON, GFS). CAPE, vento, precipitazioni: dati reali.
+          {/* Footer */}
+          <div className="mt-4 py-4 border-t text-center text-xs" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            <div className="font-bold text-slate-400 mb-1">MeteoVolo Piemonte — Dati reali Open-Meteo API</div>
+            <div className="text-slate-600">
+              Fonte: <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer"
+                className="text-emerald-500 hover:underline">open-meteo.com</a>
+              {" "}· Modello: icon_seamless · Aggiornamento ogni 30 minuti
             </div>
           </div>
         </main>

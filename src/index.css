@@ -4,95 +4,129 @@
 
 @layer base {
   :root {
-    --background: 0 0% 96.5%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 142 72% 29%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
+    --background: 222 47% 4%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 6%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 6%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 166 84% 47%;
+    --primary-foreground: 222 47% 4%;
+    --secondary: 217 32% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 32% 12%;
     --muted-foreground: 215 20% 55%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 217 32% 17%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 142 72% 29%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 32% 14%;
+    --input: 217 32% 14%;
+    --ring: 166 84% 47%;
     --radius: 0.75rem;
   }
+}
 
+@layer base {
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-[#f5f7fa] text-foreground;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background-color: #0a0c10;
+    color: #e2e8f0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 @layer utilities {
-  .card-shadow {
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  /* Dark cockpit card */
+  .cockpit-card {
+    background: rgba(15, 20, 30, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.12);
+    backdrop-filter: blur(12px);
   }
 
-  .card-shadow-md {
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  .cockpit-card-glow {
+    background: rgba(15, 20, 30, 0.9);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.05), inset 0 1px 0 rgba(255,255,255,0.04);
+    backdrop-filter: blur(12px);
+  }
+
+  /* Go/Caution/Stop cockpit variants */
+  .cockpit-go {
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+  .cockpit-caution {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+  .cockpit-stop {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  /* Windgram cell colors */
+  .wg-calm   { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
+  .wg-light  { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+  .wg-mod    { background: rgba(245, 158, 11, 0.2);  color: #fbbf24; }
+  .wg-strong { background: rgba(239, 68, 68, 0.2);   color: #f87171; }
+  .wg-danger { background: rgba(139, 92, 246, 0.25); color: #c4b5fd; }
+
+  /* Live pulse */
+  .live-dot {
+    animation: pulse-green 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Windsock animation */
+  .windsock-flap {
+    animation: flap 1.5s ease-in-out infinite alternate;
+    transform-origin: left center;
+  }
+
+  /* Lightning blink for high CAPE */
+  .lightning-blink {
+    animation: blink 0.8s step-end infinite;
+  }
+
+  /* Fade animations */
+  .fade-up {
+    animation: fadeUp 0.35s ease both;
+  }
+  .rank-in {
+    animation: rankIn 0.25s ease both;
   }
 }
 
-/* Animations */
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes flap {
+  from { transform: scaleY(0.6) rotate(-8deg); }
+  to   { transform: scaleY(1.0) rotate(4deg); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.1; }
+}
+
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes rankIn {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes livePulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-
-.fade-up {
-  animation: fadeUp 0.35s ease both;
-}
-
-.rank-in {
-  animation: rankIn 0.25s ease both;
-}
-
-.live-dot {
-  animation: livePulse 2s ease-in-out infinite;
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 /* Scrollbar */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 99px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0a0c10; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #334155; }

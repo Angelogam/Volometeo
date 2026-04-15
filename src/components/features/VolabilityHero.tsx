@@ -1,97 +1,131 @@
-import { WeatherData } from "@/types/weather";
+import { WeatherData, HourlySlot } from "@/types/weather";
 
 const wmoLabel: Record<number, string> = {
   0: "Sereno", 1: "Poco nuvoloso", 2: "Parzialmente nuvoloso", 3: "Coperto",
-  45: "Nebbia", 48: "Nebbia con brina", 51: "Pioviggine leggera", 53: "Pioviggine",
-  61: "Pioggia leggera", 63: "Pioggia moderata", 65: "Pioggia intensa",
-  71: "Neve leggera", 73: "Neve", 75: "Neve intensa", 80: "Rovesci",
-  95: "Temporale", 96: "Temporale con grandine",
+  45: "Nebbia", 51: "Pioviggine", 61: "Pioggia leggera", 63: "Pioggia",
+  71: "Neve", 80: "Rovesci", 95: "Temporale",
 };
-
 const wmoIcon: Record<number, string> = {
-  0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️", 45: "🌫️", 48: "🌫️",
-  51: "🌦️", 53: "🌧️", 61: "🌧️", 63: "🌧️", 65: "🌧️",
-  71: "🌨️", 73: "❄️", 75: "❄️", 80: "🌦️", 95: "⛈️", 96: "⛈️",
+  0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️", 45: "🌫️",
+  51: "🌦️", 61: "🌧️", 63: "🌧️", 71: "🌨️", 80: "🌦️", 95: "⛈️",
 };
-
-function getWmoLabel(code: number) {
-  return wmoLabel[code] ?? "N/D";
-}
-function getWmoIcon(code: number) {
-  return wmoIcon[code] ?? "🌡️";
+function wLabel(c: number) { return wmoLabel[c] ?? "N/D"; }
+function wIcon(c: number) {
+  const k = Object.keys(wmoIcon).map(Number).sort((a, b) => b - a).find(k => c >= k) ?? 0;
+  return wmoIcon[k] ?? "🌡️";
 }
 
-const volColor = (v: number) =>
-  v >= 7 ? "#16a34a" : v >= 4 ? "#d97706" : "#dc2626";
+function volColor(v: number) { return v <= 3 ? "#34d399" : v <= 6 ? "#fbbf24" : "#f87171"; }
+function volLabel(v: number) { return v <= 3 ? "VOLA!" : v <= 6 ? "VALUTA" : "STOP"; }
+function volEmoji(v: number) { return v <= 3 ? "🪂" : v <= 6 ? "⚠️" : "🚫"; }
 
-const volBg = (v: number) =>
-  v >= 7 ? "from-emerald-50 to-teal-50 border-emerald-200" :
-  v >= 4 ? "from-amber-50 to-yellow-50 border-amber-200" :
-  "from-red-50 to-rose-50 border-red-200";
+function cockpitClass(v: number) {
+  if (v <= 3) return "cockpit-go";
+  if (v <= 6) return "cockpit-caution";
+  return "cockpit-stop";
+}
 
-const volEmoji = (v: number) => v >= 7 ? "🪂" : v >= 4 ? "⚠️" : "🚫";
-const volText = (v: number) => v >= 7 ? "VOLA!" : v >= 4 ? "VALUTA" : "STOP";
+interface Props {
+  data: WeatherData;
+  selectedHour?: HourlySlot | null;
+}
 
-export default function VolabilityHero({ data }: { data: WeatherData }) {
-  const { current, site, todayBestHour, thermalStrength } = data;
-  const vol = current.volability;
+export default function VolabilityHero({ data, selectedHour }: Props) {
+  const { site, todayBestHour, thermalStrength } = data;
+  const slot = selectedHour ?? data.current;
+  const vol = slot.volability;
   const pct = (vol / 10) * 100;
+  const strokeColor = volColor(vol);
+  const circumference = 2 * Math.PI * 42;
+
+  // Windsock animation intensity
+  const flapDur = slot.windKmh > 30 ? "0.5s" : slot.windKmh > 15 ? "1s" : "2.5s";
+
+  // Lightning for high CAPE
+  const showLightning = slot.cape > 500;
 
   const thermalColor: Record<string, string> = {
-    debole: "text-blue-600", moderata: "text-amber-600",
-    forte: "text-orange-600", esplosiva: "text-red-600",
+    debole: "#38bdf8", moderata: "#fbbf24", forte: "#fb923c", esplosiva: "#f87171",
   };
 
   return (
-    <div className={`bg-gradient-to-br ${volBg(vol)} border-2 rounded-3xl p-5 sm:p-6 card-shadow`}>
+    <div className={`rounded-3xl p-5 sm:p-6 ${cockpitClass(vol)}`}
+      style={{ background: vol <= 3 ? "rgba(16,185,129,0.07)" : vol <= 6 ? "rgba(245,158,11,0.07)" : "rgba(239,68,68,0.08)" }}>
+
+      {/* Top row: score + site info */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
 
-        {/* Score */}
-        <div className="flex items-center gap-4 sm:gap-5">
-          <div className="relative w-24 h-24 sm:w-28 sm:h-28 shrink-0">
+        {/* Score circle */}
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="relative w-24 h-24 sm:w-28 sm:h-28">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" fill="none" stroke="#e5e7eb" strokeWidth="10" />
+              <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="10" />
               <circle
                 cx="50" cy="50" r="42" fill="none"
-                stroke={volColor(vol)} strokeWidth="10"
-                strokeDasharray={`${2 * Math.PI * 42}`}
-                strokeDashoffset={`${2 * Math.PI * 42 * (1 - pct / 100)}`}
+                stroke={strokeColor} strokeWidth="10"
+                strokeDasharray={circumference}
+                strokeDashoffset={circumference * (1 - pct / 100)}
                 strokeLinecap="round"
-                style={{ transition: "stroke-dashoffset 1s ease" }}
+                style={{ transition: "stroke-dashoffset 0.8s ease", filter: `drop-shadow(0 0 8px ${strokeColor}88)` }}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-2xl sm:text-3xl font-black leading-none" style={{ color: volColor(vol) }}>
+              <div className="text-2xl sm:text-3xl font-black leading-none" style={{ color: strokeColor }}>
                 {vol.toFixed(1)}
               </div>
-              <div className="text-[10px] text-gray-400 font-bold">/10</div>
+              <div className="text-[10px] font-bold text-slate-400">/10</div>
             </div>
           </div>
 
           <div>
-            <div className="text-3xl sm:text-4xl">{volEmoji(vol)}</div>
-            <div className="text-xl sm:text-2xl font-black mt-1" style={{ color: volColor(vol) }}>{volText(vol)}</div>
-            <div className="text-xs text-gray-500 mt-0.5 font-medium">{site.name}</div>
-            <div className="text-[10px] text-gray-400">{site.altitude}m · {site.zone}</div>
+            {/* Windsock */}
+            <div className="flex items-center gap-2 mb-1">
+              <svg width="28" height="14" viewBox="0 0 28 14">
+                <line x1="0" y1="7" x2="6" y2="7" stroke="#94a3b8" strokeWidth="1.5" />
+                <polygon
+                  points="6,2 22,4 20,10 6,12"
+                  fill={strokeColor}
+                  opacity="0.85"
+                  className="windsock-flap"
+                  style={{ animationDuration: flapDur }}
+                />
+              </svg>
+              {showLightning && <span className="text-yellow-400 lightning-blink text-sm">⚡</span>}
+            </div>
+            <div className="text-2xl sm:text-3xl font-black" style={{ color: strokeColor }}>
+              {volEmoji(vol)} {volLabel(vol)}
+            </div>
+            <div className="text-sm font-bold text-slate-300 mt-1">{site.name}</div>
+            <div className="text-[11px] text-slate-500">{site.altitude}m slm · {site.zone}</div>
+            {selectedHour && (
+              <div className="mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block"
+                style={{ background: "rgba(56,189,248,0.15)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.3)" }}>
+                📍 {String(slot.hour).padStart(2, "0")}:00 selezionata
+              </div>
+            )}
           </div>
         </div>
 
         {/* Stats grid */}
-        <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+        <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2">
           {[
-            { label: "Vento", value: `${Math.round(current.windKmh)} km/h`, sub: current.windDirLabel, icon: "💨" },
-            { label: "Raffiche", value: `${Math.round(current.gust)} km/h`, sub: "max", icon: "🌬️" },
-            { label: "Crosswind", value: `${Math.round(current.crosswind)} km/h`, sub: "componente laterale", icon: "↔️" },
-            { label: "CAPE", value: `${Math.round(current.cape)} J/kg`, sub: current.cape > 800 ? "⚠️ instabile" : "stabile", icon: "⛈️" },
-            { label: "Shear", value: `${Math.round(current.shear)} km/h`, sub: "10m→80m", icon: "📐" },
-            { label: "Base termiche", value: `${current.thermalBase}m`, sub: `${thermalStrength}`, icon: "🌀" },
+            { label: "Vento Meteo", value: `${Math.round(slot.windKmh)} km/h`, sub: slot.windDirLabel, icon: "💨" },
+            { label: "Raffica", value: `${Math.round(slot.gust)} km/h`, sub: "max istantanea", icon: "🌬️" },
+            { label: "Crosswind", value: `${Math.round(slot.crosswind)} km/h`, sub: "comp. laterale", icon: "↔️" },
+            { label: "CAPE", value: `${Math.round(slot.cape)} J/kg`, sub: slot.cape > 800 ? "⚡ instabile" : "stabile", icon: slot.cape > 500 ? "⛈️" : "🌡️" },
+            { label: "Gradiente", value: `${Math.round(slot.shear)} km/h`, sub: "wind shear 10→80m", icon: "📐" },
+            { label: "Base Cumulo", value: `${slot.thermalBase}m`, sub: thermalStrength, icon: "☁️" },
           ].map((s) => (
-            <div key={s.label} className="bg-white/70 rounded-2xl px-3 py-2.5 flex items-start gap-2.5">
+            <div key={s.label} className="rounded-2xl px-3 py-2.5 flex items-start gap-2.5"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
               <span className="text-lg shrink-0 mt-0.5">{s.icon}</span>
               <div>
-                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">{s.label}</div>
-                <div className="text-sm font-black text-gray-900 leading-tight">{s.value}</div>
-                <div className={`text-[10px] font-medium mt-0.5 ${s.label === "Termiche" ? thermalColor[thermalStrength] : "text-gray-400"}`}>{s.sub}</div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{s.label}</div>
+                <div className="text-sm font-black text-white leading-tight">{s.value}</div>
+                <div className="text-[10px] mt-0.5"
+                  style={{ color: s.label === "Base Cumulo" ? thermalColor[thermalStrength] : "#64748b" }}>
+                  {s.sub}
+                </div>
               </div>
             </div>
           ))}
@@ -99,15 +133,14 @@ export default function VolabilityHero({ data }: { data: WeatherData }) {
       </div>
 
       {/* Best hour */}
-      {todayBestHour && (
-        <div className="mt-4 flex items-center gap-3 bg-white/60 rounded-2xl px-4 py-2.5 border border-white/80">
+      {todayBestHour && !selectedHour && (
+        <div className="mt-4 flex items-center gap-3 rounded-2xl px-4 py-2.5"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
           <span className="text-lg">🏆</span>
-          <div>
-            <span className="text-xs font-bold text-gray-700">Miglior orario oggi: </span>
-            <span className="text-xs font-black text-gray-900">
-              {String(todayBestHour.hour).padStart(2, "0")}:00
-            </span>
-            <span className="text-xs text-gray-500 ml-2">
+          <div className="text-xs">
+            <span className="font-bold text-slate-300">Miglior orario oggi: </span>
+            <span className="font-black text-white">{String(todayBestHour.hour).padStart(2, "0")}:00</span>
+            <span className="text-slate-400 ml-2">
               · Volabilità {todayBestHour.volability.toFixed(1)}/10
               · Vento {Math.round(todayBestHour.windKmh)} km/h {todayBestHour.windDirLabel}
             </span>
@@ -115,14 +148,22 @@ export default function VolabilityHero({ data }: { data: WeatherData }) {
         </div>
       )}
 
-      {/* Weather description */}
-      <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
-        <span className="text-xl">{getWmoIcon(current.weatherCode)}</span>
-        <span className="font-medium">{getWmoLabel(current.weatherCode)}</span>
-        <span className="text-gray-400">·</span>
-        <span className="text-gray-500">{Math.round(current.tempC)}°C</span>
-        <span className="text-gray-400">·</span>
-        <span className="text-[11px] text-gray-400">Copertura nubi: {current.cloudCover}%</span>
+      {/* Weather desc */}
+      <div className="mt-3 flex items-center gap-2 text-sm">
+        <span className="text-xl">{wIcon(slot.weatherCode)}</span>
+        <span className="font-medium text-slate-300">{wLabel(slot.weatherCode)}</span>
+        <span className="text-slate-600">·</span>
+        <span className="text-slate-400">{Math.round(slot.tempC)}°C</span>
+        <span className="text-slate-600">·</span>
+        <span className="text-[11px] text-slate-500">Nubi: {slot.cloudCover}%</span>
+        {slot.liftedIndex !== undefined && (
+          <>
+            <span className="text-slate-600">·</span>
+            <span className={`text-[11px] font-bold ${slot.liftedIndex < -3 ? "text-red-400" : slot.liftedIndex < 0 ? "text-amber-400" : "text-emerald-400"}`}>
+              LI: {slot.liftedIndex.toFixed(1)}
+            </span>
+          </>
+        )}
       </div>
     </div>
   );

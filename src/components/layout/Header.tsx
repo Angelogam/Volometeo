@@ -1,33 +1,40 @@
 export default function Header() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  const dateStr = now.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+
   return (
-    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm">
+    <header className="sticky top-0 z-40 border-b border-sky-900/30"
+      style={{ background: "rgba(10,12,16,0.95)", backdropFilter: "blur(16px)" }}>
       <div className="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 h-[60px] flex items-center justify-between gap-4">
+
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-lg shadow-sm">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl"
+            style={{ background: "linear-gradient(135deg,#0ea5e9,#10b981)", boxShadow: "0 0 14px rgba(14,165,233,0.4)" }}>
             🪂
           </div>
           <div>
-            <div className="font-black text-gray-900 text-base leading-tight tracking-tight">MeteoVolo</div>
-            <div className="text-[10px] text-emerald-600 font-bold leading-none">PIEMONTE</div>
+            <div className="font-black text-white text-base leading-tight tracking-tight">MeteoVolo</div>
+            <div className="text-[10px] font-bold leading-none" style={{ color: "#38bdf8" }}>PIEMONTE</div>
           </div>
         </div>
 
-        {/* Center badge */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-bold text-emerald-700">Open-Meteo Live</span>
+        {/* Center — live badge */}
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full"
+          style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}>
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" />
+          <span className="text-xs font-bold text-emerald-400">Open-Meteo Live</span>
         </div>
 
-        {/* Right info */}
+        {/* Right */}
         <div className="flex items-center gap-3 text-right">
           <div className="hidden md:block">
-            <div className="text-[11px] text-gray-500">
-              {new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
-            </div>
-            <div className="text-[10px] text-gray-400">Aggiornamento ogni 30 min</div>
+            <div className="text-[11px] text-slate-400 capitalize">{dateStr}</div>
+            <div className="text-[10px] text-slate-500">Agg. ogni 30 min · {timeStr}</div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm"
+            style={{ background: "rgba(30,41,59,0.8)", border: "1px solid rgba(56,189,248,0.15)" }}>
             🌤️
           </div>
         </div>

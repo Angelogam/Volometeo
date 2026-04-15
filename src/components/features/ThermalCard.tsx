@@ -1,15 +1,21 @@
-import { WeatherData } from "@/types/weather";
+import { WeatherData, HourlySlot } from "@/types/weather";
 
 const strengthMeta = {
-  debole: { color: "text-blue-600", bg: "bg-blue-50 border-blue-200", icon: "🌀", desc: "Termiche deboli (< 1 m/s). Volo adatto a piloti esperti in condizioni calme." },
-  moderata: { color: "text-amber-600", bg: "bg-amber-50 border-amber-200", icon: "↑", desc: "Termiche moderate (1–2 m/s). Buone condizioni per soaring e voli di distanza." },
-  forte: { color: "text-orange-600", bg: "bg-orange-50 border-orange-200", icon: "🔥", desc: "Termiche forti (2–4 m/s). Attenzione a turbolenza in prossimità delle terre." },
-  esplosiva: { color: "text-red-600", bg: "bg-red-50 border-red-200", icon: "⚡", desc: "CAPE molto elevato. Rischio temporali! Solo piloti avanzati con massima prudenza." },
+  debole:   { color: "#38bdf8", icon: "🌀", desc: "Termiche deboli < 1 m/s. Condizioni calme." },
+  moderata: { color: "#fbbf24", icon: "↑",  desc: "Termiche moderate 1–2 m/s. Buone per soaring." },
+  forte:    { color: "#fb923c", icon: "🔥", desc: "Termiche forti 2–4 m/s. Attenzione turbolenza." },
+  esplosiva:{ color: "#f87171", icon: "⚡", desc: "CAPE elevato. Rischio temporali! Max prudenza." },
 };
 
-export default function ThermalCard({ data }: { data: WeatherData }) {
+interface Props {
+  data: WeatherData;
+  selectedHour?: HourlySlot | null;
+}
+
+export default function ThermalCard({ data, selectedHour }: Props) {
   const { thermalStrength, current, hourly } = data;
   const meta = strengthMeta[thermalStrength];
+  const slot = selectedHour ?? current;
   const flightHourly = hourly.filter(h => h.isFlightWindow);
 
   const avgBase = flightHourly.length
@@ -21,52 +27,126 @@ export default function ThermalCard({ data }: { data: WeatherData }) {
   const maxCape = flightHourly.length
     ? Math.max(...flightHourly.map(h => h.cape))
     : current.cape;
-  const avgCape = flightHourly.length
-    ? Math.round(flightHourly.reduce((s, h) => s + h.cape, 0) / flightHourly.length)
-    : current.cape;
+  const avgMs = flightHourly.length
+    ? (flightHourly.reduce((s, h) => s + h.thermalMs, 0) / flightHourly.length).toFixed(1)
+    : current.thermalMs.toFixed(1);
+
+  // Ceiling: Boundary Layer Height above launch
+  const ceiling = slot.boundaryLayerHeight > 0
+    ? Math.round(data.site.altitude + slot.boundaryLayerHeight)
+    : maxBase + 500;
+
+  // Vario previsto (m/s) for selected hour
+  const vario = slot.thermalMs;
+
+  // Lifted Index color
+  const liColor = slot.liftedIndex < -4 ? "#f87171" : slot.liftedIndex < -1 ? "#fbbf24" : "#34d399";
+  const liLabel = slot.liftedIndex < -4 ? "Pericolo temporali"
+    : slot.liftedIndex < -1 ? "Instabile"
+    : slot.liftedIndex < 1 ? "Lievemente instabile"
+    : "Stabile";
 
   return (
-    <div className={`${meta.bg} border-2 rounded-3xl p-5 card-shadow`}>
+    <div className="rounded-3xl p-5 cockpit-card-glow">
       <div className="flex items-start gap-3 mb-4">
-        <div className={`text-3xl w-12 h-12 rounded-2xl flex items-center justify-center bg-white/60 ${meta.color} font-black`}>
+        <div className="text-3xl w-12 h-12 rounded-2xl flex items-center justify-center font-black"
+          style={{ background: `${meta.color}18`, border: `1px solid ${meta.color}44`, color: meta.color }}>
           {meta.icon}
         </div>
         <div>
-          <div className="font-black text-gray-900 text-base">Analisi Termiche</div>
-          <div className={`text-sm font-bold capitalize ${meta.color}`}>Forza: {thermalStrength}</div>
+          <div className="font-black text-white text-base">Analisi Termiche</div>
+          <div className="text-sm font-bold capitalize" style={{ color: meta.color }}>
+            Forza: {thermalStrength}
+          </div>
         </div>
+        {selectedHour && (
+          <div className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{ background: "rgba(56,189,248,0.15)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.25)" }}>
+            📍 {String(slot.hour).padStart(2, "0")}:00
+          </div>
+        )}
       </div>
 
-      <p className="text-sm text-gray-700 mb-4 leading-relaxed">{meta.desc}</p>
+      <p className="text-sm text-slate-400 mb-4 leading-relaxed">{meta.desc}</p>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Primary metrics */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         {[
-          { label: "Base media", value: `${avgBase}m`, sub: "m slm", icon: "☁️" },
-          { label: "Base max", value: `${maxBase}m`, sub: "m slm", icon: "⛅" },
-          { label: "CAPE medio", value: `${avgCape}`, sub: "J/kg", icon: "🌡️" },
-          { label: "CAPE max", value: `${Math.round(maxCape)}`, sub: "J/kg", icon: "⚠️" },
+          {
+            label: "Vario Previsto",
+            value: `${vario.toFixed(1)} m/s`,
+            sub: "velocità termica",
+            icon: "↑",
+            color: vario > 3 ? "#f87171" : vario > 1.5 ? "#fbbf24" : "#34d399",
+          },
+          {
+            label: "Base Cumulo",
+            value: `${slot.thermalBase}m`,
+            sub: "Formula Espy",
+            icon: "☁️",
+            color: "#38bdf8",
+          },
+          {
+            label: "Ceiling",
+            value: `${ceiling}m`,
+            sub: "quota max (BLH)",
+            icon: "⬆️",
+            color: "#a78bfa",
+          },
+          {
+            label: "Lifted Index",
+            value: slot.liftedIndex !== undefined ? slot.liftedIndex.toFixed(1) : "N/D",
+            sub: liLabel,
+            icon: "📊",
+            color: liColor,
+          },
         ].map((s) => (
-          <div key={s.label} className="bg-white/60 rounded-2xl px-3 py-2.5 text-center">
-            <div className="text-lg mb-1">{s.icon}</div>
-            <div className="text-lg font-black text-gray-900 leading-none">{s.value}</div>
-            <div className="text-[9px] text-gray-400 mt-0.5">{s.sub}</div>
-            <div className="text-[10px] font-bold text-gray-600 mt-1">{s.label}</div>
+          <div key={s.label} className="rounded-2xl px-3 py-3 text-center"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="text-xl mb-1" style={{ color: s.color }}>{s.icon}</div>
+            <div className="text-lg font-black leading-none" style={{ color: s.color }}>{s.value}</div>
+            <div className="text-[9px] text-slate-500 mt-0.5">{s.sub}</div>
+            <div className="text-[10px] font-bold text-slate-400 mt-1">{s.label}</div>
           </div>
         ))}
       </div>
 
-      {/* CAPE bar chart over hours */}
+      {/* Secondary: averages */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        {[
+          { label: "Base media (09–19h)", value: `${avgBase}m`, icon: "⛅" },
+          { label: "Base massima", value: `${maxBase}m`, icon: "🌤️" },
+          { label: "Vario medio (m/s)", value: `${avgMs}`, icon: "🌀" },
+          { label: "CAPE max", value: `${Math.round(maxCape)} J/kg`, icon: maxCape > 1000 ? "⚡" : "🌡️" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-xl px-3 py-2 text-center"
+            style={{ background: "rgba(255,255,255,0.03)" }}>
+            <div className="text-base">{s.icon}</div>
+            <div className="text-sm font-black text-white leading-none mt-1">{s.value}</div>
+            <div className="text-[9px] text-slate-500 mt-1">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* CAPE bar chart */}
       {flightHourly.length > 0 && (
-        <div className="mt-4">
-          <div className="text-xs font-bold text-gray-700 mb-2">CAPE per ora (09–19h)</div>
-          <div className="flex items-end gap-1 h-12">
+        <div>
+          <div className="text-xs font-bold text-slate-400 mb-2">CAPE per ora (09–19h)</div>
+          <div className="flex items-end gap-1 h-14">
             {flightHourly.map((h) => {
               const pct = Math.min(100, (h.cape / Math.max(maxCape, 1)) * 100);
-              const col = h.cape > 1000 ? "#dc2626" : h.cape > 500 ? "#d97706" : "#16a34a";
+              const col = h.cape > 1000 ? "#f87171" : h.cape > 500 ? "#fbbf24" : "#34d399";
+              const isSelected = selectedHour?.hour === h.hour;
               return (
                 <div key={h.hour} className="flex-1 flex flex-col items-center gap-0.5">
-                  <div className="w-full rounded-t" style={{ height: `${Math.max(4, pct * 0.44)}rem`, background: col, opacity: 0.75 }} />
-                  <div className="text-[8px] text-gray-400">{h.hour}h</div>
+                  <div className="w-full rounded-t transition-all"
+                    style={{
+                      height: `${Math.max(3, pct * 0.5)}rem`,
+                      background: col,
+                      opacity: isSelected ? 1 : 0.55,
+                      boxShadow: isSelected ? `0 0 8px ${col}` : "none",
+                    }} />
+                  <div className="text-[8px] text-slate-500">{h.hour}h</div>
                 </div>
               );
             })}
