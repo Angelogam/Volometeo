@@ -34,9 +34,10 @@ interface WindgramProps {
   selectedHour?: HourlySlot | null;
   onSelectHour?: (h: HourlySlot) => void;
   dayLabel?: string;
+  dayDate?: string;
 }
 
-export default function WindgramChart({ windgram, siteAlt, hourly, selectedHour, onSelectHour, dayLabel }: WindgramProps) {
+export default function WindgramChart({ windgram, siteAlt, hourly, selectedHour, onSelectHour, dayLabel, dayDate }: WindgramProps) {
   const levels = [...windgram].sort((a, b) => b.alt - a.alt);
   const flightHours = hourly ? hourly.filter(h => h.hour >= 9 && h.hour <= 19) : [];
 
@@ -45,7 +46,7 @@ export default function WindgramChart({ windgram, siteAlt, hourly, selectedHour,
 
       {/* ── Vertical profile grid ── */}
       <div className="rounded-3xl p-5 cockpit-card-glow">
-        <div className="font-black text-white text-base mb-0.5">📊 Windgram — Profilo verticale vento</div>
+        <div className="font-black text-white text-base mb-0.5">🪂 Windgram — Profilo verticale vento</div>
         <div className="text-xs text-slate-500 mb-4">Snapshot ore 12:00 locali · Open-Meteo · dal suolo a +2000m</div>
 
         <div className="overflow-x-auto">
@@ -120,7 +121,26 @@ export default function WindgramChart({ windgram, siteAlt, hourly, selectedHour,
       {/* ── Hourly wind grid ── */}
       {flightHours.length > 0 && (
         <div className="rounded-3xl p-5 cockpit-card-glow">
-          <div className="font-black text-white text-base mb-0.5">⏱️ Vento per ora — {dayLabel ?? "Oggi"} (09–19h)</div>
+          {/* Prominent day header */}
+          <div className="mb-3 rounded-2xl px-4 py-3"
+            style={{ background: "rgba(56,189,248,0.07)", border: "1px solid rgba(56,189,248,0.2)" }}>
+            <div className="text-xs font-bold text-sky-500 uppercase tracking-widest mb-0.5">🪂 Vento per ora — 09:00–19:00</div>
+            <div className="font-black text-white text-xl sm:text-2xl capitalize">
+              {(() => {
+                if (!dayDate) return dayLabel ?? "Oggi";
+                const d = new Date(dayDate + "T12:00");
+                const full = d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+                return (dayLabel === "Oggi" || dayLabel === "Domani")
+                  ? `${dayLabel} — ${full}`
+                  : full.charAt(0).toUpperCase() + full.slice(1);
+              })()}
+            </div>
+            {selectedHour && (
+              <div className="text-base font-black text-sky-400 mt-0.5">
+                ora selezionata: {String(selectedHour.hour).padStart(2, "00")}:00
+              </div>
+            )}
+          </div>
           <div className="text-xs text-slate-500 mb-4">Colore = intensità · Freccia = direzione · Clicca cella per selezionare</div>
 
           <div className="overflow-x-auto">

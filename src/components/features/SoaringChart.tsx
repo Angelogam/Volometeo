@@ -10,9 +10,11 @@ interface Props {
   data: WeatherData;
   selectedHour?: HourlySlot | null;
   activeHourly?: HourlySlot[];
+  dayLabel?: string;
+  dayDate?: string;
 }
 
-export default function SoaringChart({ data, selectedHour, activeHourly }: Props) {
+export default function SoaringChart({ data, selectedHour, activeHourly, dayLabel: dayLabelProp, dayDate }: Props) {
   // Use activeHourly (selected day) if provided
   const source = activeHourly ?? data.hourly;
   const flight = source.filter(h => h.hour >= 7 && h.hour <= 21);
@@ -32,13 +34,22 @@ export default function SoaringChart({ data, selectedHour, activeHourly }: Props
     vario: parseFloat(h.thermalMs.toFixed(1)),
   }));
 
-  // Day label for charts
-  const dayLabel = activeHourly && activeHourly.length > 0
+  // Day label for charts — prefer passed prop, else derive from activeHourly
+  const dayLabel = dayLabelProp
     ? (() => {
-        const d = new Date(activeHourly[0].time);
-        return d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+        if (!dayDate) return dayLabelProp;
+        const d = new Date(dayDate + "T12:00");
+        const full = d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+        return (dayLabelProp === "Oggi" || dayLabelProp === "Domani")
+          ? `${dayLabelProp} — ${full}`
+          : full.charAt(0).toUpperCase() + full.slice(1);
       })()
-    : "Oggi";
+    : (activeHourly && activeHourly.length > 0
+        ? (() => {
+            const d = new Date(activeHourly[0].time);
+            return d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+          })()
+        : "Oggi");
 
   const darkTooltip = (label: string, payload: any[]) => (
     <div style={{
@@ -74,15 +85,17 @@ export default function SoaringChart({ data, selectedHour, activeHourly }: Props
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Day label */}
-      {activeHourly && (
-        <div className="rounded-2xl px-4 py-2.5 flex items-center gap-2"
-          style={{ background: "rgba(56,189,248,0.07)", border: "1px solid rgba(56,189,248,0.2)" }}>
-          <span className="text-sky-400">📅</span>
-          <span className="font-black text-white text-sm capitalize">{dayLabel}</span>
-          <span className="text-slate-500 text-xs ml-2">— tutti i grafici mostrano i dati di questa giornata</span>
-        </div>
-      )}
+      {/* Prominent day header */}
+      <div className="rounded-2xl px-5 py-4"
+        style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)" }}>
+        <div className="text-xs font-bold text-sky-500 uppercase tracking-widest mb-0.5">🪂 Grafici Soaring</div>
+        <div className="font-black text-white text-xl sm:text-2xl capitalize">{dayLabel}</div>
+        {selectedHour && (
+          <div className="text-base font-black text-sky-400 mt-0.5">
+            ora selezionata: {String(selectedHour.hour).padStart(2, "00")}:00 · evidenziata nei grafici
+          </div>
+        )}
+      </div>
 
       {/* Wind */}
       <div style={cardStyle}>

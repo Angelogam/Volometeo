@@ -52,11 +52,13 @@ function SelectionBanner({
   selectedHour,
   selectedDayLabel,
   selectedDayDate,
+  siteName,
   onClear,
 }: {
   selectedHour: HourlySlot | null;
   selectedDayLabel: string;
   selectedDayDate: string;
+  siteName: string;
   onClear: () => void;
 }) {
   if (!selectedHour) return null;
@@ -64,27 +66,33 @@ function SelectionBanner({
   const formatted = formatDateLabel(selectedDayDate, selectedDayLabel);
   return (
     <div
-      className="rounded-2xl px-4 py-3 flex items-center gap-3 fade-up"
-      style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)" }}
+      className="rounded-3xl px-5 py-4 fade-up"
+      style={{ background: "rgba(56,189,248,0.10)", border: "2px solid rgba(56,189,248,0.35)" }}
     >
-      <span className="text-sky-400 text-lg">📍</span>
-      <div className="flex-1 min-w-0">
-        <div className="font-black text-white text-base leading-tight">
-          {formatted} · <span style={{ color: col }}>{String(selectedHour.hour).padStart(2, "0")}:00</span>
+      <div className="flex items-start gap-4">
+        <span className="text-4xl mt-1">🪂</span>
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] font-bold text-sky-400 uppercase tracking-widest mb-1">🔵 PREVISIONE SELEZIONATA</div>
+          <div className="font-black text-white text-2xl sm:text-3xl leading-tight capitalize">
+            {formatted}
+          </div>
+          <div className="text-xl sm:text-2xl font-black mt-1" style={{ color: col }}>
+            ore {String(selectedHour.hour).padStart(2, "0")}:00 &nbsp;·&nbsp;
+            {selectedHour.volLabel === "GO" ? "🪂 VOLA" : selectedHour.volLabel === "CAUTION" ? "⚠️ VALUTA" : "🚫 STOP"}
+            &nbsp;·&nbsp; {selectedHour.volability.toFixed(1)}/10
+          </div>
+          <div className="text-sm text-slate-400 mt-1">
+            🏔️ {siteName} · 💨 {Math.round(selectedHour.windKmh)} km/h {selectedHour.windDirLabel} · CAPE {Math.round(selectedHour.cape)} J/kg · Base {selectedHour.thermalBase}m
+          </div>
         </div>
-        <div className="text-[11px] text-slate-400 mt-0.5">
-          Tutte le sezioni mostrano i dati per questo momento ·{" "}
-          <span className="font-bold" style={{ color: col }}>{selectedHour.volLabel}</span>
-          {" "}— Volabilità {selectedHour.volability.toFixed(1)}/10
-        </div>
+        <button
+          onClick={onClear}
+          className="shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-300 hover:text-white transition-colors mt-1"
+          style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)" }}
+        >
+          ✕ Live
+        </button>
       </div>
-      <button
-        onClick={onClear}
-        className="shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold text-slate-400 hover:text-white transition-colors"
-        style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }}
-      >
-        ✕ Ora corrente
-      </button>
     </div>
   );
 }
@@ -169,7 +177,7 @@ function MobileSitePicker({ rankings, selectedId, onSelect }: {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-xl shrink-0">{r.site.icon}</span>
+                      <span className="text-xl shrink-0">🪂</span>
                       <div className="min-w-0">
                         <div className="font-bold text-white text-sm truncate">{r.site.name}</div>
                         <div className="text-xs text-slate-500 mt-0.5">{r.site.altitude}m · {r.site.zone}</div>
@@ -319,7 +327,7 @@ function SiteList({ rankings, selectedId, onSelect }: {
               }>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-slate-600 w-4 shrink-0 font-mono">{idx + 1}</span>
-                <span className="text-lg shrink-0">{r.site.icon}</span>
+                <span className="text-lg shrink-0">🪂</span>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-white text-xs truncate">{r.site.name}</div>
                   <div className="text-[10px] text-slate-500 mt-0.5">
@@ -352,20 +360,44 @@ function SiteList({ rankings, selectedId, onSelect }: {
 }
 
 /* ── Tab Bar ─────────────────────────────────────────────────────── */
-function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
+function TabBar({ active, onChange, selectedDayLabel, selectedDayDate, selectedHour }: {
+  active: Tab;
+  onChange: (t: Tab) => void;
+  selectedDayLabel?: string;
+  selectedDayDate?: string;
+  selectedHour?: HourlySlot | null;
+}) {
+  const dateChip = selectedHour && selectedDayDate
+    ? (() => {
+        const d = new Date(selectedDayDate + "T12:00");
+        const short = d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" });
+        const label = selectedDayLabel === "Oggi" || selectedDayLabel === "Domani" ? selectedDayLabel : short;
+        return `${label} · ${String(selectedHour.hour).padStart(2,"0")}:00`;
+      })()
+    : null;
+
   return (
-    <div className="rounded-2xl p-1.5 flex gap-1 overflow-x-auto cockpit-card">
-      {TABS.map((tab) => (
-        <button key={tab.id} onClick={() => onChange(tab.id)}
-          className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[40px]"
-          style={active === tab.id
-            ? { background: "#e2e8f0", color: "#0a0c10" }
-            : { color: "#64748b" }
-          }>
-          <span className="text-sm">{tab.icon}</span>
-          <span>{tab.label}</span>
-        </button>
-      ))}
+    <div className="rounded-2xl p-1.5 flex flex-col gap-1.5 cockpit-card">
+      {dateChip && (
+        <div className="px-2 pt-1 pb-0.5 flex items-center gap-2">
+          <span className="text-lg">🪂</span>
+          <span className="text-sm font-black text-sky-400 capitalize">{dateChip}</span>
+          <span className="text-xs text-slate-500">— tutti i pannelli mostrano questa previsione</span>
+        </div>
+      )}
+      <div className="flex gap-1 overflow-x-auto">
+        {TABS.map((tab) => (
+          <button key={tab.id} onClick={() => onChange(tab.id)}
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap min-h-[44px]"
+            style={active === tab.id
+              ? { background: "#e2e8f0", color: "#0a0c10" }
+              : { color: "#64748b" }
+            }>
+            <span className="text-base">🪂</span>
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -465,6 +497,7 @@ export default function Index() {
                 selectedHour={selectedHour}
                 selectedDayLabel={selectedDayLabel}
                 selectedDayDate={selectedDayDate}
+                siteName={data.site.name}
                 onClear={clearSelection}
               />
 
@@ -483,7 +516,13 @@ export default function Index() {
               <AlertsPanel alerts={data.alerts} />
 
               {/* Tabs */}
-              <TabBar active={activeTab} onChange={setActiveTab} />
+              <TabBar
+                active={activeTab}
+                onChange={setActiveTab}
+                selectedDayLabel={selectedDayLabel}
+                selectedDayDate={selectedDayDate}
+                selectedHour={selectedHour}
+              />
 
               {/* Tab content */}
               <div className="fade-up">
@@ -507,7 +546,13 @@ export default function Index() {
                   />
                 )}
                 {activeTab === "soaring" && (
-                  <SoaringChart data={data} selectedHour={selectedHour} activeHourly={activeHourly} />
+                  <SoaringChart
+                    data={data}
+                    selectedHour={selectedHour}
+                    activeHourly={activeHourly}
+                    dayLabel={selectedDayLabel || "Oggi"}
+                    dayDate={selectedDayDate || data.daily[0]?.date || ""}
+                  />
                 )}
                 {activeTab === "termiche" && (
                   <div className="flex flex-col gap-4">
@@ -522,6 +567,8 @@ export default function Index() {
                       data={data}
                       selectedHour={selectedHour}
                       activeHourly={activeHourly}
+                      dayLabel={selectedDayLabel || "Oggi"}
+                      dayDate={selectedDayDate || data.daily[0]?.date || ""}
                     />
                   </div>
                 )}
@@ -533,6 +580,7 @@ export default function Index() {
                     selectedHour={selectedHour}
                     onSelectHour={handleHourSelect}
                     dayLabel={selectedDayLabel || "Oggi"}
+                    dayDate={selectedDayDate || data.daily[0]?.date || ""}
                   />
                 )}
               </div>

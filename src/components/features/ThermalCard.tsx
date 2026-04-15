@@ -11,9 +11,11 @@ interface Props {
   data: WeatherData;
   selectedHour?: HourlySlot | null;
   activeHourly?: HourlySlot[];
+  dayLabel?: string;
+  dayDate?: string;
 }
 
-export default function ThermalCard({ data, selectedHour, activeHourly }: Props) {
+export default function ThermalCard({ data, selectedHour, activeHourly, dayLabel, dayDate }: Props) {
   const { thermalStrength, current } = data;
   const meta = strengthMeta[thermalStrength];
   const slot = selectedHour ?? current;
@@ -54,6 +56,28 @@ export default function ThermalCard({ data, selectedHour, activeHourly }: Props)
 
   return (
     <div className="rounded-3xl p-5 cockpit-card-glow">
+      {/* Prominent day header */}
+      {(() => {
+        const dispDate = dayDate
+          ? new Date(dayDate + "T12:00").toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })
+          : "";
+        const dispLabel = (dayLabel === "Oggi" || dayLabel === "Domani")
+          ? `${dayLabel}${dispDate ? " — " + dispDate : ""}`
+          : (dispDate ? dispDate.charAt(0).toUpperCase() + dispDate.slice(1) : "Oggi");
+        return (
+          <div className="mb-4 rounded-2xl px-4 py-3"
+            style={{ background: "rgba(56,189,248,0.07)", border: "1px solid rgba(56,189,248,0.2)" }}>
+            <div className="text-xs font-bold text-sky-500 uppercase tracking-widest mb-0.5">🪂 Termiche &amp; Aerologia</div>
+            <div className="font-black text-white text-xl sm:text-2xl capitalize">{dispLabel}</div>
+            {selectedHour && (
+              <div className="text-lg font-black mt-0.5" style={{ color: meta.color }}>
+                ore {String(slot.hour).padStart(2, "0")}:00 · Forza: {thermalStrength}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="flex items-start gap-3 mb-4">
         <div className="text-3xl w-12 h-12 rounded-2xl flex items-center justify-center font-black"
           style={{ background: `${meta.color}18`, border: `1px solid ${meta.color}44`, color: meta.color }}>
@@ -65,14 +89,6 @@ export default function ThermalCard({ data, selectedHour, activeHourly }: Props)
             Forza: {thermalStrength}
           </div>
         </div>
-        {selectedHour && (
-          <div className="ml-auto text-right">
-            <div className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-              style={{ background: "rgba(56,189,248,0.15)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.25)" }}>
-              📍 {selectedDate} · {String(slot.hour).padStart(2, "0")}:00
-            </div>
-          </div>
-        )}
       </div>
 
       <p className="text-sm text-slate-400 mb-4 leading-relaxed">{meta.desc}</p>
