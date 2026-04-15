@@ -1,22 +1,25 @@
 import { WeatherData, HourlySlot } from "@/types/weather";
 
 const strengthMeta = {
-  debole:   { color: "#38bdf8", icon: "🌀", desc: "Termiche deboli < 1 m/s. Condizioni calme." },
-  moderata: { color: "#fbbf24", icon: "↑",  desc: "Termiche moderate 1–2 m/s. Buone per soaring." },
-  forte:    { color: "#fb923c", icon: "🔥", desc: "Termiche forti 2–4 m/s. Attenzione turbolenza." },
-  esplosiva:{ color: "#f87171", icon: "⚡", desc: "CAPE elevato. Rischio temporali! Max prudenza." },
+  debole:    { color: "#38bdf8", icon: "🌀", desc: "Termiche deboli < 1 m/s. Condizioni calme." },
+  moderata:  { color: "#fbbf24", icon: "↑",  desc: "Termiche moderate 1–2 m/s. Buone per soaring." },
+  forte:     { color: "#fb923c", icon: "🔥", desc: "Termiche forti 2–4 m/s. Attenzione turbolenza." },
+  esplosiva: { color: "#f87171", icon: "⚡", desc: "CAPE elevato. Rischio temporali! Max prudenza." },
 };
 
 interface Props {
   data: WeatherData;
   selectedHour?: HourlySlot | null;
+  activeHourly?: HourlySlot[];
 }
 
-export default function ThermalCard({ data, selectedHour }: Props) {
-  const { thermalStrength, current, hourly } = data;
+export default function ThermalCard({ data, selectedHour, activeHourly }: Props) {
+  const { thermalStrength, current } = data;
   const meta = strengthMeta[thermalStrength];
   const slot = selectedHour ?? current;
-  const flightHourly = hourly.filter(h => h.isFlightWindow);
+
+  // Use activeHourly (selected day) or fallback to today
+  const flightHourly = (activeHourly ?? data.hourly).filter(h => h.isFlightWindow || (h.hour >= 9 && h.hour <= 19));
 
   const avgBase = flightHourly.length
     ? Math.round(flightHourly.reduce((s, h) => s + h.thermalBase, 0) / flightHourly.length)
@@ -31,20 +34,23 @@ export default function ThermalCard({ data, selectedHour }: Props) {
     ? (flightHourly.reduce((s, h) => s + h.thermalMs, 0) / flightHourly.length).toFixed(1)
     : current.thermalMs.toFixed(1);
 
-  // Ceiling: Boundary Layer Height above launch
   const ceiling = slot.boundaryLayerHeight > 0
     ? Math.round(data.site.altitude + slot.boundaryLayerHeight)
     : maxBase + 500;
 
-  // Vario previsto (m/s) for selected hour
   const vario = slot.thermalMs;
-
-  // Lifted Index color
   const liColor = slot.liftedIndex < -4 ? "#f87171" : slot.liftedIndex < -1 ? "#fbbf24" : "#34d399";
   const liLabel = slot.liftedIndex < -4 ? "Pericolo temporali"
     : slot.liftedIndex < -1 ? "Instabile"
     : slot.liftedIndex < 1 ? "Lievemente instabile"
     : "Stabile";
+
+  const selectedDate = selectedHour
+    ? (() => {
+        const d = new Date(selectedHour.time);
+        return d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" });
+      })()
+    : null;
 
   return (
     <div className="rounded-3xl p-5 cockpit-card-glow">
@@ -60,46 +66,27 @@ export default function ThermalCard({ data, selectedHour }: Props) {
           </div>
         </div>
         {selectedHour && (
-          <div className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full"
-            style={{ background: "rgba(56,189,248,0.15)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.25)" }}>
-            📍 {String(slot.hour).padStart(2, "0")}:00
+          <div className="ml-auto text-right">
+            <div className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: "rgba(56,189,248,0.15)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.25)" }}>
+              📍 {selectedDate} · {String(slot.hour).padStart(2, "0")}:00
+            </div>
           </div>
         )}
       </div>
 
       <p className="text-sm text-slate-400 mb-4 leading-relaxed">{meta.desc}</p>
 
-      {/* Primary metrics */}
+      {/* Primary metrics for selected slot */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         {[
           {
-            label: "Vario Previsto",
-            value: `${vario.toFixed(1)} m/s`,
-            sub: "velocità termica",
-            icon: "↑",
+            label: "Vario Previsto", value: `${vario.toFixed(1)} m/s`, sub: "velocità termica", icon: "↑",
             color: vario > 3 ? "#f87171" : vario > 1.5 ? "#fbbf24" : "#34d399",
           },
-          {
-            label: "Base Cumulo",
-            value: `${slot.thermalBase}m`,
-            sub: "Formula Espy",
-            icon: "☁️",
-            color: "#38bdf8",
-          },
-          {
-            label: "Ceiling",
-            value: `${ceiling}m`,
-            sub: "quota max (BLH)",
-            icon: "⬆️",
-            color: "#a78bfa",
-          },
-          {
-            label: "Lifted Index",
-            value: slot.liftedIndex !== undefined ? slot.liftedIndex.toFixed(1) : "N/D",
-            sub: liLabel,
-            icon: "📊",
-            color: liColor,
-          },
+          { label: "Base Cumulo", value: `${slot.thermalBase}m`, sub: "Formula Espy", icon: "☁️", color: "#38bdf8" },
+          { label: "Ceiling", value: `${ceiling}m`, sub: "quota max (BLH)", icon: "⬆️", color: "#a78bfa" },
+          { label: "Lifted Index", value: slot.liftedIndex !== undefined ? slot.liftedIndex.toFixed(1) : "N/D", sub: liLabel, icon: "📊", color: liColor },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl px-3 py-3 text-center"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -111,7 +98,7 @@ export default function ThermalCard({ data, selectedHour }: Props) {
         ))}
       </div>
 
-      {/* Secondary: averages */}
+      {/* Secondary: day averages */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
         {[
           { label: "Base media (09–19h)", value: `${avgBase}m`, icon: "⛅" },
@@ -144,15 +131,15 @@ export default function ThermalCard({ data, selectedHour }: Props) {
               const pct = Math.min(100, (h.cape / Math.max(maxCape, 1)) * 100);
               const col = h.cape > 1000 ? "#f87171" : h.cape > 500 ? "#fb923c" : "#fbbf24";
               const glow = h.cape > 1000 ? "rgba(248,113,113,0.4)" : h.cape > 500 ? "rgba(251,146,60,0.35)" : "rgba(251,191,36,0.3)";
-              const isSelected = selectedHour?.hour === h.hour;
+              const isSelected = selectedHour?.time === h.time;
               return (
-                <div key={h.hour} className="flex-1 flex flex-col items-center justify-end gap-0.5" style={{ height: "100%" }}>
+                <div key={h.time} className="flex-1 flex flex-col items-center justify-end gap-0.5" style={{ height: "100%" }}>
                   <div
                     className="w-full rounded-t-lg transition-all duration-300"
                     style={{
                       height: `${Math.max(4, pct)}%`,
                       background: `linear-gradient(to top, ${col}, ${col}bb)`,
-                      opacity: isSelected ? 1 : 0.6,
+                      opacity: isSelected ? 1 : 0.55,
                       boxShadow: isSelected ? `0 0 10px ${glow}` : "none",
                       border: isSelected ? `1px solid ${col}` : "1px solid transparent",
                     }}

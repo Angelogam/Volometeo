@@ -9,14 +9,18 @@ function volColor(l: string) { return l === "GO" ? "#34d399" : l === "CAUTION" ?
 interface Props {
   data: WeatherData;
   selectedHour?: HourlySlot | null;
+  activeHourly?: HourlySlot[];
 }
 
-export default function SoaringChart({ data, selectedHour }: Props) {
-  const flight = data.hourly.filter(h => h.hour >= 7 && h.hour <= 21);
+export default function SoaringChart({ data, selectedHour, activeHourly }: Props) {
+  // Use activeHourly (selected day) if provided
+  const source = activeHourly ?? data.hourly;
+  const flight = source.filter(h => h.hour >= 7 && h.hour <= 21);
 
   const chartData = flight.map(h => ({
     ora: `${String(h.hour).padStart(2, "0")}h`,
     hour: h.hour,
+    time: h.time,
     vento: Math.round(h.windKmh),
     raffica: Math.round(h.gust),
     vento80: Math.round(h.wind80Kmh),
@@ -27,6 +31,14 @@ export default function SoaringChart({ data, selectedHour }: Props) {
     baseTermiche: Math.round(h.thermalBase / 100) * 100,
     vario: parseFloat(h.thermalMs.toFixed(1)),
   }));
+
+  // Day label for charts
+  const dayLabel = activeHourly && activeHourly.length > 0
+    ? (() => {
+        const d = new Date(activeHourly[0].time);
+        return d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+      })()
+    : "Oggi";
 
   const darkTooltip = (label: string, payload: any[]) => (
     <div style={{
@@ -62,11 +74,20 @@ export default function SoaringChart({ data, selectedHour }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Day label */}
+      {activeHourly && (
+        <div className="rounded-2xl px-4 py-2.5 flex items-center gap-2"
+          style={{ background: "rgba(56,189,248,0.07)", border: "1px solid rgba(56,189,248,0.2)" }}>
+          <span className="text-sky-400">📅</span>
+          <span className="font-black text-white text-sm capitalize">{dayLabel}</span>
+          <span className="text-slate-500 text-xs ml-2">— tutti i grafici mostrano i dati di questa giornata</span>
+        </div>
+      )}
 
       {/* Wind */}
       <div style={cardStyle}>
         <div className="font-black text-white mb-1">💨 Vento Meteo & Raffica (km/h)</div>
-        <div className="text-xs text-slate-500 mb-4">07:00–21:00 · suolo (10m) e +80m</div>
+        <div className="text-xs text-slate-500 mb-4">Suolo (10m) e +80m</div>
         <ResponsiveContainer width="100%" height={200}>
           <ComposedChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
             <CartesianGrid {...gridStyle} />
@@ -84,7 +105,7 @@ export default function SoaringChart({ data, selectedHour }: Props) {
       {/* Volability */}
       <div style={cardStyle}>
         <div className="font-black text-white mb-1">🪂 Indice Volabilità (/10)</div>
-        <div className="text-xs text-slate-500 mb-4">Verde ≤3 · Ambra 4–6 · Rosso &gt;6</div>
+        <div className="text-xs text-slate-500 mb-4">Verde ≤3 · Ambra 4–6 · Rosso &gt;6{selectedHour ? " · colonna attiva evidenziata" : ""}</div>
         <ResponsiveContainer width="100%" height={180}>
           <ComposedChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
             <CartesianGrid {...gridStyle} />
@@ -92,15 +113,20 @@ export default function SoaringChart({ data, selectedHour }: Props) {
             <YAxis domain={[0, 10]} tick={axisStyle} />
             <Tooltip content={({ active, payload, label }) => active && payload?.length ? darkTooltip(label, payload) : null} />
             <Bar dataKey="volabilità" name="Volabilità" radius={[4, 4, 0, 0]}>
-              {chartData.map((entry, idx) => (
-                <Cell
-                  key={idx}
-                  fill={volColor(entry.label)}
-                  opacity={selectedHour && selectedHour.hour !== entry.hour ? 0.35 : 0.85}
-                />
-              ))}
+              {chartData.map((entry, idx) => {
+                const isSel = selectedHour?.time === entry.time;
+                return (
+                  <Cell
+                    key={idx}
+                    fill={volColor(entry.label)}
+                    opacity={selectedHour && !isSel ? 0.3 : 0.85}
+                    stroke={isSel ? "#38bdf8" : "none"}
+                    strokeWidth={isSel ? 2 : 0}
+                  />
+                );
+              })}
             </Bar>
-            <Line dataKey="vario" name="Vario (m/s)" stroke="#a78bfa" strokeWidth={1.5} dot={false} yAxisId={0} />
+            <Line dataKey="vario" name="Vario (m/s)" stroke="#a78bfa" strokeWidth={1.5} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

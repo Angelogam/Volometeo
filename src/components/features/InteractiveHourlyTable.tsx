@@ -20,17 +20,24 @@ function volBadgeSx(l: string) {
     : { background: "rgba(248,113,113,0.15)", color: "#f87171" };
 }
 
-type SortKey = "hour" | "volability" | "windKmh" | "cape" | "shear";
-
 interface Props {
   hourly: HourlySlot[];
   siteAlt: number;
   selectedHour?: HourlySlot | null;
   onSelectHour?: (h: HourlySlot) => void;
+  dayLabel?: string;
+  dayDate?: string;
 }
 
-export default function InteractiveHourlyTable({ hourly, siteAlt, selectedHour, onSelectHour }: Props) {
+export default function InteractiveHourlyTable({ hourly, siteAlt, selectedHour, onSelectHour, dayLabel, dayDate }: Props) {
   const flightHours = hourly.filter(h => h.hour >= 9 && h.hour <= 19);
+
+  const displayDate = dayDate
+    ? new Date(dayDate + "T12:00").toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })
+    : "";
+  const displayLabel = dayLabel === "Oggi" || dayLabel === "Domani"
+    ? `${dayLabel}${displayDate ? ` — ${displayDate}` : ""}`
+    : displayDate;
 
   const Th = ({ label }: { label: string }) => (
     <th className="px-3 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
@@ -40,10 +47,23 @@ export default function InteractiveHourlyTable({ hourly, siteAlt, selectedHour, 
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Info */}
-      <div className="rounded-2xl px-4 py-2.5 flex items-center gap-2 cockpit-card">
-        <span className="text-[10px] font-bold text-slate-500 mr-1">Clicca su una riga per selezionare l&apos;ora</span>
-        <div className="ml-auto text-[10px] text-slate-600">{flightHours.length} ore · siteAlt {siteAlt}m</div>
+      {/* Header with date */}
+      <div className="rounded-2xl px-4 py-3 flex items-center gap-3 cockpit-card">
+        <span className="text-sky-400 text-base">📅</span>
+        <div className="flex-1">
+          {displayLabel && (
+            <div className="font-black text-white text-sm capitalize">{displayLabel}</div>
+          )}
+          <div className="text-[10px] text-slate-500 mt-0.5">
+            Clicca su una riga per selezionare l&apos;ora · {flightHours.length} ore · siteAlt {siteAlt}m
+          </div>
+        </div>
+        {selectedHour && (
+          <div className="text-sm font-black px-3 py-1 rounded-xl"
+            style={{ background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.25)" }}>
+            {String(selectedHour.hour).padStart(2, "0")}:00 attiva
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -66,20 +86,18 @@ export default function InteractiveHourlyTable({ hourly, siteAlt, selectedHour, 
                 <Th label="Base" />
               </tr>
             </thead>
-            <tbody style={{ divide: "none" }}>
+            <tbody>
               {flightHours.map((h) => {
-                const isSelected = selectedHour?.hour === h.hour;
+                const isSelected = selectedHour?.time === h.time;
                 const col = volColor(h.volLabel);
                 const badge = volBadgeSx(h.volLabel);
                 return (
                   <tr
-                    key={h.hour}
+                    key={h.time}
                     onClick={() => onSelectHour?.(h)}
                     className="cursor-pointer transition-colors"
                     style={{
-                      background: isSelected
-                        ? "rgba(56,189,248,0.08)"
-                        : "transparent",
+                      background: isSelected ? "rgba(56,189,248,0.08)" : "transparent",
                       borderLeft: isSelected ? "3px solid #38bdf8" : "3px solid transparent",
                       borderBottom: "1px solid rgba(255,255,255,0.04)",
                     }}
@@ -92,7 +110,7 @@ export default function InteractiveHourlyTable({ hourly, siteAlt, selectedHour, 
                   >
                     <td className="px-3 py-3">
                       <div className="font-black text-white text-sm">{String(h.hour).padStart(2, "0")}:00</div>
-                      {isSelected && <div className="text-[9px] font-bold text-sky-400">● selezionata</div>}
+                      {isSelected && <div className="text-[9px] font-bold text-sky-400">● attiva</div>}
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-2">
@@ -147,7 +165,7 @@ export default function InteractiveHourlyTable({ hourly, siteAlt, selectedHour, 
               {flightHours.length === 0 && (
                 <tr>
                   <td colSpan={12} className="px-4 py-8 text-center text-sm text-slate-600">
-                    Nessuna ora disponibile nella finestra di volo 09–19h.
+                    Nessuna ora disponibile nella finestra di volo 09–19h per questo giorno.
                   </td>
                 </tr>
               )}

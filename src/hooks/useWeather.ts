@@ -311,6 +311,7 @@ async function fetchWeather(site: LaunchSite): Promise<WeatherData> {
     fetchedAt: now,
     current,
     hourly: todayHourly,
+    allHourly: hourlySlots,
     daily,
     windgram,
     sun,

@@ -40,6 +40,55 @@ function volBadgeSx(l: string) {
     : { background: "rgba(248,113,113,0.15)", color: "#f87171" };
 }
 
+// Format a date string for display
+function formatDateLabel(dateStr: string, label: string): string {
+  const d = new Date(dateStr + "T12:00");
+  const fullDay = d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+  return label === "Oggi" || label === "Domani" ? `${label} — ${fullDay}` : fullDay.charAt(0).toUpperCase() + fullDay.slice(1);
+}
+
+/* ── Selected Day/Hour Banner ───────────────────────────────────── */
+function SelectionBanner({
+  selectedHour,
+  selectedDayLabel,
+  selectedDayDate,
+  onClear,
+}: {
+  selectedHour: HourlySlot | null;
+  selectedDayLabel: string;
+  selectedDayDate: string;
+  onClear: () => void;
+}) {
+  if (!selectedHour) return null;
+  const col = volColor(selectedHour.volLabel);
+  const formatted = formatDateLabel(selectedDayDate, selectedDayLabel);
+  return (
+    <div
+      className="rounded-2xl px-4 py-3 flex items-center gap-3 fade-up"
+      style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)" }}
+    >
+      <span className="text-sky-400 text-lg">📍</span>
+      <div className="flex-1 min-w-0">
+        <div className="font-black text-white text-base leading-tight">
+          {formatted} · <span style={{ color: col }}>{String(selectedHour.hour).padStart(2, "0")}:00</span>
+        </div>
+        <div className="text-[11px] text-slate-400 mt-0.5">
+          Tutte le sezioni mostrano i dati per questo momento ·{" "}
+          <span className="font-bold" style={{ color: col }}>{selectedHour.volLabel}</span>
+          {" "}— Volabilità {selectedHour.volability.toFixed(1)}/10
+        </div>
+      </div>
+      <button
+        onClick={onClear}
+        className="shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold text-slate-400 hover:text-white transition-colors"
+        style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }}
+      >
+        ✕ Ora corrente
+      </button>
+    </div>
+  );
+}
+
 /* ── Mobile Site Picker ─────────────────────────────────────────── */
 function MobileSitePicker({ rankings, selectedId, onSelect }: {
   rankings: SiteRanking[];
@@ -178,7 +227,6 @@ function SiteList({ rankings, selectedId, onSelect }: {
 
   return (
     <div className="flex flex-col gap-3 h-full">
-      {/* Header */}
       <div className="rounded-2xl p-4 cockpit-card-glow">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -190,7 +238,6 @@ function SiteList({ rankings, selectedId, onSelect }: {
             <span className="text-[10px] font-bold text-emerald-400">LIVE</span>
           </div>
         </div>
-
         <div className="grid grid-cols-3 gap-1.5">
           {[
             { l: "🪂 VOLA", n: goCount, color: "#34d399", bg: "rgba(52,211,153,0.1)", border: "rgba(52,211,153,0.25)" },
@@ -206,7 +253,6 @@ function SiteList({ rankings, selectedId, onSelect }: {
         </div>
       </div>
 
-      {/* Search & filters */}
       <div className="rounded-2xl p-3 cockpit-card flex flex-col gap-2">
         <input
           placeholder="🔍 Cerca decollo..."
@@ -241,7 +287,6 @@ function SiteList({ rankings, selectedId, onSelect }: {
         </div>
       </div>
 
-      {/* Best site */}
       {(() => {
         const best = [...rankings].filter(r => !r.loading).sort((a, b) => b.volability - a.volability)[0];
         if (!best) return null;
@@ -261,7 +306,6 @@ function SiteList({ rankings, selectedId, onSelect }: {
         );
       })()}
 
-      {/* Site list */}
       <div className="flex flex-col gap-1.5 overflow-y-auto flex-1 min-h-0">
         {sorted.map((r, idx) => {
           const isSelected = r.site.id === selectedId;
@@ -331,17 +375,55 @@ export default function Index() {
   const rankings = useAllSiteRankings();
   const [selectedSite, setSelectedSite] = useState<LaunchSite>(SITES[0]);
   const [activeTab, setActiveTab] = useState<Tab>("settimanale");
+
+  // Global time selection: day (date string) + hour slot
+  const [selectedDayDate, setSelectedDayDate] = useState<string>("");
+  const [selectedDayLabel, setSelectedDayLabel] = useState<string>("");
   const [selectedHour, setSelectedHour] = useState<HourlySlot | null>(null);
 
   const { data, isLoading, isError } = useWeather(selectedSite);
 
+  // Hourly slots for the currently selected day (or today as default)
+  const activeHourly = useMemo(() => {
+    if (!data) return [];
+    const targetDate = selectedDayDate || data.daily[0]?.date || "";
+    return targetDate
+      ? data.allHourly.filter(h => h.time.startsWith(targetDate) && h.hour >= 9 && h.hour <= 19)
+      : data.hourly.filter(h => h.hour >= 9 && h.hour <= 19);
+  }, [data, selectedDayDate]);
+
+  // Sun info for selected day
+  const activeSun = useMemo(() => {
+    if (!data) return data?.sun;
+    if (!selectedDayDate) return data.sun;
+    const dayData = data.daily.find(d => d.date === selectedDayDate);
+    if (!dayData) return data.sun;
+    return { ...data.sun, sunrise: dayData.sunrise, sunset: dayData.sunset };
+  }, [data, selectedDayDate]);
+
   function handleSiteSelect(site: LaunchSite) {
     setSelectedSite(site);
-    setSelectedHour(null); // reset selected hour on site change
+    setSelectedHour(null);
+    setSelectedDayDate("");
+    setSelectedDayLabel("");
+  }
+
+  function handleDayHourSelect(date: string, dayLabel: string, h: HourlySlot) {
+    setSelectedDayDate(date);
+    setSelectedDayLabel(dayLabel);
+    setSelectedHour(h);
+    // Switch to orario tab so user sees the full context
+    setActiveTab("orario");
   }
 
   function handleHourSelect(h: HourlySlot) {
-    setSelectedHour(prev => prev?.hour === h.hour ? null : h);
+    setSelectedHour(prev => prev?.hour === h.hour && prev?.time === h.time ? null : h);
+  }
+
+  function clearSelection() {
+    setSelectedHour(null);
+    setSelectedDayDate("");
+    setSelectedDayLabel("");
   }
 
   return (
@@ -378,11 +460,24 @@ export default function Index() {
 
           {data && (
             <>
+              {/* Selection banner */}
+              <SelectionBanner
+                selectedHour={selectedHour}
+                selectedDayLabel={selectedDayLabel}
+                selectedDayDate={selectedDayDate}
+                onClear={clearSelection}
+              />
+
               {/* Hero — reacts to selectedHour */}
-              <VolabilityHero data={data} selectedHour={selectedHour} />
+              <VolabilityHero
+                data={data}
+                selectedHour={selectedHour}
+                selectedDayDate={selectedDayDate}
+                selectedDayLabel={selectedDayLabel}
+              />
 
               {/* Sun */}
-              <SunBar sun={data.sun} siteName={data.site.name} />
+              {activeSun && <SunBar sun={activeSun} siteName={data.site.name} />}
 
               {/* Alerts */}
               <AlertsPanel alerts={data.alerts} />
@@ -393,30 +488,51 @@ export default function Index() {
               {/* Tab content */}
               <div className="fade-up">
                 {activeTab === "settimanale" && (
-                  <DailyForecast daily={data.daily} hourly={data.hourly} />
+                  <DailyForecast
+                    daily={data.daily}
+                    allHourly={data.allHourly}
+                    selectedDayDate={selectedDayDate}
+                    selectedHour={selectedHour}
+                    onSelectDayHour={handleDayHourSelect}
+                  />
                 )}
                 {activeTab === "orario" && (
                   <InteractiveHourlyTable
-                    hourly={data.hourly}
+                    hourly={activeHourly}
                     siteAlt={data.site.altitude}
                     selectedHour={selectedHour}
                     onSelectHour={handleHourSelect}
+                    dayLabel={selectedDayLabel || "Oggi"}
+                    dayDate={selectedDayDate || data.daily[0]?.date || ""}
                   />
                 )}
                 {activeTab === "soaring" && (
-                  <SoaringChart data={data} selectedHour={selectedHour} />
+                  <SoaringChart data={data} selectedHour={selectedHour} activeHourly={activeHourly} />
                 )}
                 {activeTab === "termiche" && (
                   <div className="flex flex-col gap-4">
-                    <BriefingCard data={data} selectedHour={selectedHour} />
-                    <ThermalCard data={data} selectedHour={selectedHour} />
+                    <BriefingCard
+                      data={data}
+                      selectedHour={selectedHour}
+                      activeHourly={activeHourly}
+                      selectedDayLabel={selectedDayLabel}
+                      selectedDayDate={selectedDayDate}
+                    />
+                    <ThermalCard
+                      data={data}
+                      selectedHour={selectedHour}
+                      activeHourly={activeHourly}
+                    />
                   </div>
                 )}
                 {activeTab === "windgram" && (
                   <WindgramChart
                     windgram={data.windgram}
                     siteAlt={data.site.altitude}
-                    hourly={data.hourly}
+                    hourly={activeHourly}
+                    selectedHour={selectedHour}
+                    onSelectHour={handleHourSelect}
+                    dayLabel={selectedDayLabel || "Oggi"}
                   />
                 )}
               </div>

@@ -84,7 +84,8 @@ export interface WeatherData {
   site: LaunchSite;
   fetchedAt: Date;
   current: HourlySlot;
-  hourly: HourlySlot[];
+  hourly: HourlySlot[];       // oggi
+  allHourly: HourlySlot[];   // tutti i 7 giorni
   daily: DailyDay[];
   windgram: WindgramLevel[];
   sun: SunInfo;
